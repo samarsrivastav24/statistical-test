@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[6]:
 
 
 import streamlit as st
@@ -9,134 +9,147 @@ import pandas as pd
 from scipy.stats import chi2_contingency, ttest_ind, f_oneway
 
 # -----------------------------
-# Page config
+# Page Config
 # -----------------------------
-st.set_page_config(page_title="Statistical Tests Dashboard", layout="wide")
-
-st.title("📊 Statistical Tests on Titanic Dataset")
+st.set_page_config(
+    page_title="Titanic Statistical Analysis",
+    page_icon="🚢",
+    layout="wide"
+)
 
 # -----------------------------
-# Load data
+# Title Section
+# -----------------------------
+st.markdown(
+    "<h1 style='text-align: center;'>🚢 Titanic Statistical Analysis Dashboard</h1>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align: center; color: gray;'>Statistical tests & visual insights</p>",
+    unsafe_allow_html=True
+)
+
+st.divider()
+
+# -----------------------------
+# Load Data
 # -----------------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv("Titanic-Dataset.csv")
-
-    # Handle missing values
-    df['Age'] = df['Age'].fillna(df['Age'].median())
-    df['Embarked'] = df['Embarked'].fillna(df['Embarked'].mode()[0])
-    df = df.drop(columns=['Cabin'])
-
+    df["Age"].fillna(df["Age"].median(), inplace=True)
+    df["Embarked"].fillna(df["Embarked"].mode()[0], inplace=True)
+    df.drop(columns=["Cabin"], inplace=True)
     return df
 
 df = load_data()
 
 # -----------------------------
-# Show dataset
+# Top Metrics
 # -----------------------------
-st.subheader("🔍 Dataset Preview")
-st.dataframe(df.head(), use_container_width=True)
+col1, col2, col3, col4 = st.columns(4)
 
-# -----------------------------
-# Research Questions
-# -----------------------------
-st.subheader("❓ Research Questions")
+col1.metric("👥 Total Passengers", len(df))
+col2.metric("✅ Survivors", df["Survived"].sum())
+col3.metric("❌ Non-Survivors", (df["Survived"] == 0).sum())
+col4.metric("📊 Survival Rate", f"{df['Survived'].mean()*100:.1f}%")
 
-st.markdown("""
-**Q1.** Is there an association between passenger survival status and sex?  
-**Test:** Chi-square test of independence  
-
-**Q2.** Is the mean age of survivors different from the mean age of non-survivors?  
-**Test:** Independent two-sample t-test  
-
-**Q3.** Does the mean fare paid differ across passenger classes (1st, 2nd, 3rd)?  
-**Test:** One-way ANOVA  
-""")
+st.divider()
 
 # -----------------------------
-# Results DataFrame
+# Charts Section
 # -----------------------------
-results = pd.DataFrame(columns=[
-    "Test Name",
-    "Research Question",
-    "Variable 1",
-    "Variable 2",
-    "Statistic",
-    "P-Value",
-    "Conclusion"
-])
+c1, c2 = st.columns(2)
 
-# -----------------------------
-# Chi-square Test
-# -----------------------------
-contingency = pd.crosstab(df['Survived'], df['Sex'])
-chi2, p, dof, expected = chi2_contingency(contingency)
+with c1:
+    st.subheader("👩‍🦰 Survival by Gender")
+    gender_survival = df.groupby("Sex")["Survived"].mean()
+    st.bar_chart(gender_survival)
 
-results.loc[len(results)] = [
-    "Chi-Square",
-    "Is survival associated with sex?",
-    "Survived",
-    "Sex",
-    chi2,
-    p,
-    "Significant" if p < 0.05 else "Not Significant"
-]
+with c2:
+    st.subheader("🎟 Survival by Passenger Class")
+    class_survival = df.groupby("Pclass")["Survived"].mean()
+    st.line_chart(class_survival)
+
+st.divider()
 
 # -----------------------------
-# t-Test
-# -----------------------------
-survived_age = df[df['Survived'] == 1]['Age']
-not_survived_age = df[df['Survived'] == 0]['Age']
-
-t_stat, p = ttest_ind(survived_age, not_survived_age)
-
-results.loc[len(results)] = [
-    "T-Test",
-    "Is mean age different between survivors and non-survivors?",
-    "Age",
-    "Survived",
-    t_stat,
-    p,
-    "Significant" if p < 0.05 else "Not Significant"
-]
-
-# -----------------------------
-# ANOVA
-# -----------------------------
-fare_class1 = df[df['Pclass'] == 1]['Fare']
-fare_class2 = df[df['Pclass'] == 2]['Fare']
-fare_class3 = df[df['Pclass'] == 3]['Fare']
-
-f_stat, p = f_oneway(fare_class1, fare_class2, fare_class3)
-
-results.loc[len(results)] = [
-    "ANOVA",
-    "Does mean fare differ across passenger classes?",
-    "Fare",
-    "Pclass",
-    f_stat,
-    p,
-    "Significant" if p < 0.05 else "Not Significant"
-]
-
-# -----------------------------
-# Display results
+# Statistical Tests
 # -----------------------------
 st.subheader("📈 Statistical Test Results")
 
-st.dataframe(results, use_container_width=True, height=300)
+results = []
+
+# Chi-square
+contingency = pd.crosstab(df["Survived"], df["Sex"])
+chi2, p1, _, _ = chi2_contingency(contingency)
+
+results.append([
+    "Chi-Square Test",
+    "Survival vs Gender",
+    round(chi2, 3),
+    round(p1, 5),
+    "Significant" if p1 < 0.05 else "Not Significant"
+])
+
+# t-test
+t_stat, p2 = ttest_ind(
+    df[df["Survived"] == 1]["Age"],
+    df[df["Survived"] == 0]["Age"]
+)
+
+results.append([
+    "T-Test",
+    "Age vs Survival",
+    round(t_stat, 3),
+    round(p2, 5),
+    "Significant" if p2 < 0.05 else "Not Significant"
+])
+
+# ANOVA
+f_stat, p3 = f_oneway(
+    df[df["Pclass"] == 1]["Fare"],
+    df[df["Pclass"] == 2]["Fare"],
+    df[df["Pclass"] == 3]["Fare"]
+)
+
+results.append([
+    "ANOVA",
+    "Fare vs Passenger Class",
+    round(f_stat, 3),
+    round(p3, 5),
+    "Significant" if p3 < 0.05 else "Not Significant"
+])
+
+results_df = pd.DataFrame(
+    results,
+    columns=["Test", "Comparison", "Statistic", "P-Value", "Conclusion"]
+)
+
+st.dataframe(results_df, use_container_width=True, hide_index=True)
+
+st.divider()
 
 # -----------------------------
-# Interpretation
+# Final Insights
 # -----------------------------
-st.subheader("🧠 Key Interpretation")
-st.markdown("""
-- **Chi-square:** Tests association between categorical variables  
-- **t-test:** Compares means between two groups  
-- **ANOVA:** Compares means across multiple groups  
+st.subheader("🧠 Key Insights")
 
-*p-value < 0.05 indicates statistical significance*
-""")
+colA, colB, colC = st.columns(3)
+
+with colA:
+    st.success("👩 Women had significantly higher survival rates.")
+
+with colB:
+    st.info("🎂 Survivors were younger on average.")
+
+with colC:
+    st.warning("💰 Fare differs significantly across classes.")
+
+st.markdown(
+    "<p style='text-align:center; color:gray;'>p-value < 0.05 indicates statistical significance</p>",
+    unsafe_allow_html=True
+)
 
 
 # In[ ]:
